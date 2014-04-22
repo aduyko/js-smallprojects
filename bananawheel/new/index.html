@@ -1,0 +1,26 @@
+<html>
+	<head>
+		<title>BANANARAMA KAZAM</title>
+		<link rel = "stylesheet" type = "text/css" href = "fruits.css"></style>
+		<script src = "JQuery/jquery-1.8.2.js" type = "text/javascript"></script>
+		<script src = "loader.js" type="text/javascript"></script>
+		<script src = "datamodel.js" type="text/javascript"></script>
+		<script src = "data.js" type = "text/javascript"></script>
+		<script src = "stage.js" type = "text/javascript"></script>
+		<script src = "timers.js" type = "text/javascript"></script>
+		<script src = "game.js" type = "text/javascript"></script>
+		<script src = "keyhandler.js" type = "text/javascript"></script>
+		<script type = "text/javascript">
+			$(document).ready(function(){
+				Game.init();
+			});
+		</script>
+	</head>
+	<body>
+	<canvas id="chunk-canvas" height=300 width=300></canvas>
+	<div id="wrapper">
+		<canvas id="canvas" height=400 width=450></canvas>
+	</div>
+	<div id="rules">Press Space</div>
+	</body>
+</html>

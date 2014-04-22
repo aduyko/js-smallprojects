@@ -1,0 +1,92 @@
+body{
+	background-color:black;
+	color:white;
+}
+#Loading{
+	width:400px;
+	margin-left:auto;
+	margin-right:auto;
+	margin-top:100px;
+	text-align:center;
+	color:white;
+	font-family:"Georgia",georgia,serif;
+	font-style:20px;
+}
+#MainPanel{
+	color:black;
+	height:300px;
+	width:300px;
+	margin-top:100px;
+	margin-left:-150px;
+	left:50%;
+	position:absolute;
+	border:1px white solid;
+	background:#9922cc;
+}
+#Arrow{
+	margin-left: 150px;
+	left:50%;
+	top:250px;
+	position:absolute;
+}
+#Request{
+	width:300px;
+	height:50px;
+	margin-left:-150px;
+	left:50%;
+	margin-top:50px;
+	position:absolute;
+	background:#9922cc;
+	background-position: center 0%;
+    background-repeat: no-repeat;
+	border: solid white 1px;
+}
+.Fruit{
+	height:50px;
+	width:50px;
+	position:absolute;
+	max-width:100%;
+}
+#SmasherDiv{
+	height:350px;
+	width:300px;
+	margin-left:-150px;
+	left:50%;
+	margin-top:50px;
+	position:absolute;
+	border: solid white 1px;
+	background:#9922cc;
+}
+#SmashPower{
+	height:350px;
+	width:100px;
+	margin-left:150px;
+	left:50%;
+	margin-top:50px;
+	position:absolute;
+	border: solid white 1px;
+}
+.Smasher{
+	height:75px;
+	width:75px;
+	position:absolute;
+	max-width:100%;
+	background:white;
+	margin-left:-37px;
+	left:50%;
+}
+.PrepFruit{
+	height:100px;
+	width:100px;
+	position:absolute;
+	max-width:100%;
+	background:green;
+	margin-left:-50px;
+	left:50%;
+	margin-top:250px;
+}
+.FruitChunk{
+	height:25px;
+	width:25px;
+	position:absolute;
+}

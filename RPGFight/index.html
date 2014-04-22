@@ -1,0 +1,42 @@
+<html>
+<head>
+	<title>RPGFight</title>
+	<link rel = "stylesheet" type = "text/css" href = "rpgStyle.css"></style>
+	<script src = "artloader.js" type = "text/javascript"></script>
+	<script src = "menuHandler.js" type = "text/javascript"></script>
+	<script src = "combatHandler.js" type = "text/javascript"></script>
+	<script src = "characterHandler.js" type = "text/javascript"></script>
+	<script src = "turnOrder.js" type = "text/javascript"></script>
+	<script type = "text/javascript">
+		var gameCanvas;
+		var gameCtx;
+		var buttonCanvas;
+		var buttonCtx;
+		
+		window.onload = function() {
+			initCanvases();
+			initImages();
+		}
+		function initCanvases() {
+			gameCanvas = document.getElementById("gameCanvas");
+			gameCtx = gameCanvas.getContext("2d");
+			buttonCanvas = document.getElementById("buttonCanvas");
+			buttonCtx = buttonCanvas.getContext("2d");
+		}		
+		function initGame() {
+			loadStartMenu();
+		}
+	</script>
+</head>
+<body>
+	<div id="rules">Controls: Z, X, Arrow keys</div>
+	<div id = "gameDiv">
+		<div id = "canvasDiv">
+			<canvas id = "gameCanvas" width = "640" height = "320"></canvas>
+		</div>
+		<div id = "buttonDiv">
+			<canvas id = "buttonCanvas" width = "640" height = "160"></canvas>
+		</div>
+	</div>
+</body>
+</html>

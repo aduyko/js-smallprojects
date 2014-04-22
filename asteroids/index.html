@@ -1,0 +1,673 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+	<!-- by andriy duyko
+		whatup give me a holla-->
+	<!-- first off this is probably easiest to read in something like notepad++
+		becuase everythign is different colors there-->
+	
+	<!-- AIGHT this is my dope game enjoy
+		you can change pretty much a lot of stuff and get cool new stuff
+		especially with the vars and stuff
+		and theres some ocmments i wrote about changing stuff which is legit-->
+		<title>Asteroids</title>
+		<style>
+			/*aight this is css, you shouldnt use html to set any properties because modern browsers dont*/
+			/*really support that kind of thing well anymore*/
+			body {
+				color:#ffffff;
+				background-color:#000000;
+				font-size:200%;
+			}
+			#canvasDiv {
+				position: absolute;
+				margin: -250px 0 0 -256px;
+				top: 300px;
+				left: 50%;
+		    }
+			#spaceCanvas {
+				float:right;
+				border: 2px solid #ffffff;
+			}
+			#puzzleCanvas {
+				float:left;
+				border: 2px solid #ffffff;
+			}
+		</style>
+		<script>
+		//initialize all my variables!
+			//speed modifier changes the speed of everything, points is points, time limit is time limit
+			//trail timer is how long it takes for an instance to disappear completely. for .1 it takes 10 
+			//renderings to make the old one disappear, its basically 1/how long you want the trail to last
+			
+			//trail_time_renderer is used to make the trail even longer by changing how many frames it takes
+			//to update the background. the minimum for global_trail_timer is .005 and trail timer renderer
+			//is used to make that longer.
+			var GLOBAL_SPEED_MODIFIER = .8;
+			var GLOBAL_POINTS = 0;
+			var GLOBAL_TIME_LIMIT = 999999999999999;
+			var GLOBAL_TRAIL_TIMER = .1;
+			var GLOBAL_TRAIL_TIMER_RENDERER = 1;
+			
+			//hero facts
+			var HERO_COLOR = "white";
+			var HERO_SIZE = 15;
+			var HERO_THICKNESS = HERO_SIZE/3;
+			var HERO_SPEED = 300*GLOBAL_SPEED_MODIFIER;
+			
+			//enemy facts
+			//enemy speed variation is the upper bound on the variation in enemy speed. if it is 0
+			//all enemies have the same speed.
+			//init_spawn_rate and max_spawn_rate dont really work. 
+			//enemy_ratio is how many different kinds
+			//of enemies there are, with every one that isn't a defined color beign purple (bad guy)
+			var ENEMY_SIZE = 10;
+			var ENEMY_SPEED = 240*GLOBAL_SPEED_MODIFIER;
+			var ENEMY_SPEED_VARIATION = 30*GLOBAL_SPEED_MODIFIER;
+			var ENEMY_INIT_SPAWN_RATE = 10;
+			var ENEMY_MAX_SPAWN_RATE = 100;
+			var ENEMY_SPAWN_RATE_INCREASING = true;
+			var ENEMY_RATIO = 10;
+			
+			//puzzle facts
+			//you can change width and height and it will work
+			//so dope
+			var PUZZLE_HEIGHT = 9;
+			var PUZZLE_WIDTH = 4;
+			var PUZZLE_TARGET_CONNECTED = 3;
+			
+			//points distribution facts
+			var POINTS_BAD_COLLISION = -1;
+			var POINTS_GOOD_COLLISION = 0;
+			
+			//color facts
+			var COLOR_RED = "Red";
+			var COLOR_GREEN = "#7CFF2C";
+			var COLOR_PURPLE = "Purple";
+			var COLOR_BLUE = "Cyan";
+			
+			//sound facts, this doesnt really work properly but you can uncomment it later. 
+			//It works just not well.
+			var COLLISION_SOUND = "gulp.mp3";
+			
+			//canvas facts
+			var spaceCanvas;
+			var puzzleCanvas;
+			var spaceCtx;
+			var puzzleCtx;
+			
+			//hero object facts
+			var hero = {
+				speed: HERO_SPEED,
+				size: HERO_SIZE,
+				//you dont need to declare x and y but i like to know whats what
+				x: 0,
+				y: 0
+			};
+			
+			//enemy object facts
+			var enemies = new Array();
+			var enemy = function(color,size,speed,x,y,direction){
+				this.speed=speed;
+				this.size=size;
+				this.x=x;
+				this.y=y;
+				this.color=color;
+				this.direction=direction;
+			};
+			
+			//puzzle pointer object facts
+			var pointer = {
+				column: 0
+			}
+			
+			//puzzle initialization facts
+			var puzzle = new Array(PUZZLE_HEIGHT);
+			for (i=0;i<PUZZLE_HEIGHT;i++) {
+				puzzle[i] = new Array(PUZZLE_WIDTH);
+			}
+			
+			//enemy generator
+			var createEnemy = function(color, size) {
+				//selects a random point on the canvas
+				var xPos=Math.random()*spaceCanvas.width;
+				var yPos=Math.random()*spaceCanvas.height;
+				//selects a random direction to spawn from
+				var spawnDirection = Math.floor(Math.random()*4);
+				//sets the enemy speed.
+				var offset = ENEMY_SPEED_VARIATION;
+				var enemySpeed = ENEMY_SPEED + Math.floor(Math.random()*(2*offset)-offset);
+				//moves the enemys position to its spawn based on its random direction. 0=north 1=east 2=south 3=west
+				switch(spawnDirection){
+				case 0: 
+					yPos = -15;
+					break;
+				case 1:
+					xPos = spaceCanvas.width+15;
+					break;
+				case 2:
+					yPos = spaceCanvas.height+15;
+					break;
+				case 3:
+					xPos = -15;
+					break;
+				default:
+					break;
+				}
+				//puts the newly generated enemy into our array of all enemies
+				enemies.push(new enemy(color,size,enemySpeed,xPos,yPos,spawnDirection));
+			}
+			
+			//keyboard listeners
+			var keysDown = {};
+			addEventListener("keydown", function (e) {
+				keysDown[e.keyCode] = true;
+				//Z moves pointer
+				if (e.keyCode == 90) {
+					if (pointer.column==0) {
+						pointer.column=(PUZZLE_WIDTH-1);
+					}
+					else {pointer.column--};
+					renderPuzzle();
+				}
+				//X moves pointer
+				if (e.keyCode == 88) {
+					if (pointer.column==(PUZZLE_WIDTH-1)) {
+						pointer.column=0;
+					}
+					else {pointer.column++};
+					renderPuzzle();
+				}
+			}, false);
+
+			addEventListener("keyup", function (e) {
+				delete keysDown[e.keyCode];
+			}, false);
+			
+			//movement updates
+			//modifier is passed from the main method to determine how much time has passed between
+			//function calls.
+			var update = function (modifier) {
+				if (38 in keysDown) { // Player holding up
+					if (hero.y-hero.size >= 0) {
+						hero.y -= hero.speed * modifier;
+					}
+				}
+				if (40 in keysDown) { // Player holding down
+					if (hero.y+hero.size <= spaceCanvas.height) {
+						hero.y += hero.speed * modifier;
+					}
+				}
+				if (37 in keysDown) { // Player holding left
+					if (hero.x-hero.size >= 0) {
+						hero.x -= hero.speed * modifier;
+					}
+				}
+				if (39 in keysDown) { // Player holding right
+					if (hero.x+hero.size <= spaceCanvas.width) {
+						hero.x += hero.speed * modifier;
+					}
+				}
+				//Enemies loop, goes through the enemy array.
+				//Goes from the end back because the splice function does some funky stuff otherwise.
+				for (i = enemies.length-1; i >=0 ;i--) {
+					var target = enemies[i];
+					//based on the direction the enemy is traveling, we need to move it that way.
+					//then check if it raeches the end of the screen and kill it
+					switch(target.direction) {
+						case 0:
+							target.y+= target.speed*modifier;
+							if (target.y >= spaceCanvas.height) {
+								enemies.splice(i,1);
+							}
+							break;
+						case 1:
+							target.x-= target.speed*modifier;
+							if (target.x <= 0) {
+								enemies.splice(i,1);
+							}
+							break;
+						case 2:
+							target.y-= target.speed*modifier;
+							if (target.y <=0) {
+								enemies.splice(i,1);
+							}
+							break;
+						case 3:
+							target.x+= target.speed*modifier;
+							if (target.x >= spaceCanvas.width) {
+								enemies.splice(i,1);
+							}
+							break;
+					}
+					//if the enemy is still alive after being moved, check if it has collided with our
+					//hero
+					checkCollision(i);
+				}
+			};	
+			//this really cool and good function for checkign collisions
+			var checkCollision = function(targetId) {
+				target = enemies[targetId];
+				targetColor = target.color;
+				//circle collision. if the distance between two circles is less than the sum of their radii
+				//they are colliding. this is pythagorean theorem
+				if ((Math.pow(target.x-hero.x,2) + Math.pow(target.y-hero.y,2)) < Math.pow((HERO_SIZE + ENEMY_SIZE),2)) {
+					//kill our enemy
+					enemies.splice(targetId,1);
+					//play a sound (this is buggy so commented out)
+					//new Audio(COLLISION_SOUND).play();
+					//take away points if it was purple
+					if (targetColor==COLOR_PURPLE) {
+						GLOBAL_POINTS+=POINTS_BAD_COLLISION;
+					}
+					//if it wasnt purple then do puzzle stuff
+					else {
+						GLOBAL_POINTS+=POINTS_GOOD_COLLISION;
+						//put the appropriate color into the column the pointer is pointing at.
+						//if you wanted to check column height you could add code here to end
+						//the game.
+						for (i=0;i<PUZZLE_HEIGHT;i++) {
+							if (puzzle[i][pointer.column]==null) {
+								puzzle[i][pointer.column]=targetColor;
+								//i render twice because theres something wrong with the checkpuzzle function
+								//so it doesnt always render afterwards in certain browsers.
+								renderPuzzle();
+								//checkpuzzle() is probably the worst thing ever written
+								checkPuzzle();
+								renderPuzzle();
+								break;
+							}
+						}
+					}
+					
+				}
+				//updates our score counter
+				var myPoints = document.getElementById("scoreDiv");
+				myPoints.innerHTML = GLOBAL_POINTS;
+			}
+			
+			//this doesnt do anything because i couldnt mkake any coordinate objects
+			//without breaking the program.
+			var coord = new function(xCoord,yCoord) {
+				this.x=xCoord;
+				this.y=yCoord;
+			};
+			
+			//so i just do this. I push break in there because empty arrays dont work right?
+			//dont really know the right way to do this.
+			var xCoordinates = new Array();
+			var yCoordinates = new Array();
+			xCoordinates.push("BREAK");
+			yCoordinates.push("BREAK");
+			
+			//check that nesting
+			//basically loops through the puzzle checking if nearby colors are the same.
+			var checkPuzzle = function() {
+				for (i=0;i<PUZZLE_HEIGHT;i++) {
+					for (j=0;j<PUZZLE_WIDTH;j++) {
+						if (puzzle[i][j]!=null) {
+							//reset our arrays for each block because you push stuff into them
+							//for each block.
+							xCoordinates = new Array();
+							yCoordinates = new Array();
+							xCoordinates.push("BREAK");
+							yCoordinates.push("BREAK");
+							//YO I FIXED IT
+							//so dope
+							//if there are 3 or more blocks of the same color connected,
+							if (checkSurrounding(j,i,xCoordinates,yCoordinates)){
+								//see how many blocks were connected
+								var pointsGained = xCoordinates.length-1;
+								//break connected blocks
+								//counts from the end down because of length reasons.
+								for (i=xCoordinates.length;i>1;i--) {
+									puzzle[yCoordinates[i-1]][xCoordinates[i-1]]=null;
+									xCoordinates.splice(i,1);
+									yCoordinates.splice(i,1);
+								}
+								//give points for how many blcoks were connected.
+								GLOBAL_POINTS+=pointsGained;
+								//make the blocks fall, and then
+								//loop again because
+								//falling blocks might have made new combinations.
+								collapsePuzzle();
+								i=0;
+								j=0;
+							}
+						}
+					}	
+				}
+			}
+			
+			//pretty much the coolest best function.
+			var checkSurrounding = function(myX,myY,xCoordinates,yCoordinates) {
+				//remember the coordinates we are on so we dont get stuck in an infinite loop
+				xCoordinates.push(myX);
+				yCoordinates.push(myY);
+				
+				//im only commenting this once because its the same deal.
+				//check if we are on the left. if we are only check right
+				if (myX==0) {
+					//if the block to the right is the same color
+					if (puzzle[myY][myX]==puzzle[myY][myX+1]) {
+						//check if we already pushed it into our arrays
+						if (!containsCoordinates(myX+1, myY,xCoordinates,yCoordinates)) {
+							//then recursively push it into our arrays and check its surroundings
+							checkSurrounding(myX+1, myY, xCoordinates,yCoordinates);
+						}
+					}
+				}
+				else if (myX==PUZZLE_WIDTH-1) {
+					if (puzzle[myY][myX]==puzzle[myY][myX-1]) {
+						if (!containsCoordinates(myX-1,myY,xCoordinates,yCoordinates)) {
+							checkSurrounding(myX-1,myY, xCoordinates,yCoordinates);
+						}
+					}
+				}
+				else {
+					if (puzzle[myY][myX]==puzzle[myY][myX-1]) {
+						if (!containsCoordinates(myX-1,myY,xCoordinates,yCoordinates)) {
+							checkSurrounding(myX-1,myY, xCoordinates,yCoordinates);
+						}
+					}
+					if (puzzle[myY][myX]==puzzle[myY][myX+1]) {
+						if (!containsCoordinates(myX+1,myY,xCoordinates,yCoordinates)) {
+							checkSurrounding(myX+1,myY, xCoordinates,yCoordinates);
+						}
+					}
+				}
+				if (myY==0) {
+					if (puzzle[myY][myX]==puzzle[myY+1][myX]) {
+						if (!containsCoordinates(myX,myY+1,xCoordinates,yCoordinates)) {
+							checkSurrounding(myX,myY+1, xCoordinates,yCoordinates);
+						}
+					}
+				}
+				else if (myY==PUZZLE_HEIGHT-1) {
+					if (puzzle[myY][myX]==puzzle[myY-1][myX]) {
+						if (!containsCoordinates(myX,myY-1,xCoordinates,yCoordinates)) {
+							checkSurrounding(myX,myY-1, xCoordinates,yCoordinates);
+						}
+					}
+				}
+				else {
+					if (puzzle[myY][myX]==puzzle[myY+1][myX]) {
+						if (!containsCoordinates(myX,myY+1,xCoordinates,yCoordinates)) {
+							checkSurrounding(myX,myY+1, xCoordinates,yCoordinates);
+						}
+					}
+					if (puzzle[myY][myX]==puzzle[myY-1][myX]) {
+						if (!containsCoordinates(myX,myY-1,xCoordinates,yCoordinates)) {
+							checkSurrounding(myX,myY-1, xCoordinates,yCoordinates);
+						}
+					}
+				}
+				
+				//if more than 3 blocks are connected return true.
+				//you gotta type(> target) because "BREAK" is part of our array and counts
+				//towards its length.
+				if (xCoordinates.length>PUZZLE_TARGET_CONNECTED) {
+					return true;
+				}
+				return false;
+				
+			}
+			//checks if given coordinates are inside our arrays to see if we should check them
+			//or not.
+			var containsCoordinates = function(xCoord,yCoord,xCoordinates,yCoordinates) {
+				for (k = 0; k < xCoordinates.length;k++) {
+					if (xCoord==xCoordinates[k]&&yCoord==yCoordinates[k]) {
+						return true;
+					}
+				}
+				return false;
+			}
+			
+			//move blocks down if there are gaps under them.
+			var collapsePuzzle = function() {
+				var emptyRow=0;
+				var moveDown=false;
+				for (j=0;j<PUZZLE_WIDTH;j++) {
+					for (i=0;i<PUZZLE_HEIGHT;i++) {
+						//find empty holes in the column
+						if (puzzle[i][j]==null && !moveDown) {
+							emptyRow=i;
+							moveDown=true;
+						}
+						//if there is a non-null block above it, move it down and repeat.
+						if (puzzle[i][j]!=null && moveDown) {
+							var moveColor = puzzle[i][j];
+							puzzle[i][j]=null;
+							while (i!=emptyRow) {
+								i--;
+							}
+							puzzle[i][j]= moveColor;
+							moveDown=false;
+						}
+					}
+					moveDown=false;
+				}
+				
+			}
+			
+			//bgrendertracker is used to see how many times the canvas has rendered.
+			var bgrendertracker = 0;
+			//the big boy himself, render
+			var render = function() {
+				bgrendertracker++;
+				//check if we should draw the background (trail stuff)
+				if (bgrendertracker==GLOBAL_TRAIL_TIMER_RENDERER) {
+					drawBackground();
+					bgrendertracker=0;
+				}
+				//draw our main bro
+				drawHero();
+				//draw the enemy bros
+				drawAllEnemies();	
+			};
+			
+			//draws the background. GLOBAL_TRAIL_TIMER is the alpha, from 0-1.
+			var drawBackground = function() {
+				spaceCtx.fillStyle = "rgba(0, 0, 0, "+GLOBAL_TRAIL_TIMER+")";
+				spaceCtx.fillRect(0,0,spaceCanvas.width,spaceCanvas.height);
+			};
+			
+			//draws the hero. just a circle
+			var drawHero = function() {
+				spaceCtx.beginPath();
+				spaceCtx.arc(hero.x, hero.y, hero.size, 0, 2 * Math.PI, false);
+				spaceCtx.fill();
+				spaceCtx.lineWidth = HERO_THICKNESS;
+				spaceCtx.strokeStyle = HERO_COLOR;
+				spaceCtx.stroke();
+			};
+			
+			//draw all the enmies
+			var drawAllEnemies = function() {
+				for (i = 0; i < enemies.length;i++) {
+					drawEnemy(i);
+				}
+			}
+			
+			//draw an individual enemy. they are transparent in the middle how sick is taht
+			var drawEnemy = function(enemyIndex) {
+				target = enemies[enemyIndex];
+				spaceCtx.beginPath();
+				spaceCtx.arc(target.x, target.y, target.size, 0, 2 * Math.PI, false);
+				spaceCtx.fillStyle = "rgba(255,255,255,0)";
+				spaceCtx.fill();
+				spaceCtx.lineWidth = target.size/3.3;
+				spaceCtx.strokeStyle = target.color;
+				spaceCtx.stroke();
+			}
+			
+			//draws the puzzle. this is only called on collision or arrow movement
+			//idk how i wouild change that to make these things animated
+			var renderPuzzle = function() {
+				drawPuzzleBackground();
+				drawPointer();
+				drawPuzzle();
+			}
+			
+			//draws a triangle for our pointer.
+			var drawPointer = function() {
+				var targetX = puzzleCanvas.width*(pointer.column/PUZZLE_WIDTH);
+				var targetY = puzzleCanvas.height*(PUZZLE_HEIGHT/(1+PUZZLE_HEIGHT));
+				puzzleCtx.fillStyle = "white";
+				puzzleCtx.strokeStyle = "white";
+				puzzleCtx.lineWidth = .5;
+				puzzleCtx.moveTo(targetX, puzzleCanvas.height);
+				puzzleCtx.lineTo(targetX+puzzleCanvas.width*(1/(PUZZLE_WIDTH*2)), targetY);
+				puzzleCtx.lineTo(targetX+puzzleCanvas.width*(1/PUZZLE_WIDTH), puzzleCanvas.height);
+				puzzleCtx.lineTo(targetX,puzzleCanvas.height);
+				puzzleCtx.fill();
+				puzzleCtx.closePath();
+				puzzleCtx.beginPath();
+			}
+			//draws the puzzle, which is the background and the three lines or whatever.
+			//you can actually add more lines by changing PUZZLE_WIDTH and the whole thign
+			//still works
+			
+			//how sick is that
+			var drawPuzzle = function() {
+				for (i=0;i<PUZZLE_HEIGHT;i++){
+					for(j=0;j<PUZZLE_WIDTH;j++){
+						if (puzzle[i][j]!=null) {
+							//here the magic happens
+							//draws our puzzle pieces in the right spot.
+							//the array is drawn upside down becuase otherwise it would be
+							//at the top? which is weird
+							var radius = puzzleCanvas.width/(PUZZLE_WIDTH*2);
+							var blockX = (puzzleCanvas.width*(j/PUZZLE_WIDTH))+radius;
+							var blockY = (puzzleCanvas.height*(((PUZZLE_HEIGHT-1)-i)/(PUZZLE_HEIGHT+1)))+radius;
+							puzzleCtx.beginPath();
+							puzzleCtx.arc(blockX,blockY, radius-.8, 0, 2 * Math.PI, false);
+							puzzleCtx.fillStyle = puzzle[i][j];
+							puzzleCtx.fill();
+							puzzleCtx.lineWidth = 0.1;
+							puzzleCtx.strokeStyle = puzzle[i][j];
+							puzzleCtx.stroke();
+						}
+					}
+				}
+			}
+			
+			//this is the background lines. puzzleCanvas.width = puzzleCanvas.width
+			//resets the canvas. i think it doesnt work in internet explorere so wathc out for that 
+			var drawPuzzleBackground = function() {
+				puzzleCanvas.width = puzzleCanvas.width;
+				//cc8822 is just ugly brown
+				puzzleCtx.fillStyle = "#cc8822";
+				puzzleCtx.strokeStyle = "#cc8822";
+				puzzleCtx.lineWidth = 1;
+				for (i=0;i<PUZZLE_WIDTH;i++) {
+					puzzleCtx.moveTo(puzzleCanvas.width*((i+1)/PUZZLE_WIDTH),0);
+					puzzleCtx.lineTo(puzzleCanvas.width*((i+1)/PUZZLE_WIDTH),puzzleCanvas.height);
+					puzzleCtx.stroke();
+					puzzleCtx.closePath();
+				}
+			}
+			//sets the initial position of our hero and draws the puzzle once
+			//the puzzle only gets drawn on collision or when you press z or x so this is
+			//importnat
+			var reset = function() {
+				hero.y = spaceCanvas.height / 2;
+				hero.x = spaceCanvas.width / 2;
+				renderPuzzle();
+			};
+			
+			//gets a rnadom color. ENEMY_RATIO is how many different enmies there are. make enemy ratio lower
+			//to decrease how many purple ones apear
+			//YOU CAN ADD COLORS HERE!!!! JUst make a new case and make it return "#aaaaaa" 
+			//where #aaaaaa is the color you want
+			//how sick is that
+			//like case 3:
+			//			return "#55aa77";
+			//			break;
+			//will add a new color
+			//and they work in the puzzle and everything it is so sick
+			var randomColor = function() {
+				var intColor = Math.floor(Math.random()*ENEMY_RATIO);
+				switch (intColor) {
+					case 0:
+						return COLOR_GREEN;
+						break;
+					case 1:
+						return COLOR_BLUE;
+						break;
+					case 2:
+						return COLOR_RED;
+						break;
+					default:
+						return COLOR_PURPLE;
+				}
+			};
+			
+			//this stuff doesnt work right and im confused about it
+			var enemySpawnTimer = 0;
+			var enemyTimerTarget = ENEMY_INIT_SPAWN_RATE;
+			
+			//this keeps track of important facts
+			var then;
+			var totalTime=0;
+			
+			var main = function() {
+				var now = Date.now();
+				totalTime++;
+				//breaks the game if the time limit is reached
+				if (totalTime> GLOBAL_TIME_LIMIT) {
+					var thePoints = document.getElementById("scoreDiv");
+					thePoints.innerHTML = '<font size = 5>'+"GAME OVER!"+(GLOBAL_POINTS)+'</font>';
+					clearInterval(myTimer);
+				}
+				//updates everythings position
+				var delta = now-then;
+				update(delta / 1000);
+				
+				//this affects how fast enemies spawn. It doesnt really work though, so all you need
+				//to know is that
+				//The important number is the "-10"
+				//set that to the maximum speed you want them to spawn at. lower = faster.
+				//if thats still not fast enough, copy-paste createEnemy a few times.
+				enemySpawnTimer++;
+				if (enemySpawnTimer == (ENEMY_MAX_SPAWN_RATE-enemyTimerTarget)+1) {
+					enemySpawnTimer = 0;
+					if (ENEMY_SPAWN_RATE_INCREASING==true & enemyTimerTarget<ENEMY_MAX_SPAWN_RATE-10) {
+						enemyTimerTarget++;
+					}
+					createEnemy(randomColor(),ENEMY_SIZE);
+				}
+				render();
+				then = now;
+			};
+			//this is our timer for the game loop. this lets us stop the game. 1 is every 1 millisecond or
+			//something insane
+			var myTimer=setInterval(main,1);
+			
+			//i dont know how necessary this is but whatever. I think everything inside here would be fine outside.
+			//not relaly sure what the purpose of doing this stuff onload is.
+			window.onload = function() {
+				spaceCanvas = document.getElementById("spaceCanvas");
+				spaceCtx = spaceCanvas.getContext("2d");
+				puzzleCanvas = document.getElementById("puzzleCanvas");
+				puzzleCtx = puzzleCanvas.getContext("2d");
+				reset();
+				then = Date.now();
+				trailTimer = Date.now();
+			};
+			
+		</script>
+	</head>
+	<!--this is all of the actual the html,
+		I (think) widths and heights have to be defined here if you're making
+		your canvases here although it would be better to do it in the 
+		css-->
+	<body>
+		<div id = "canvasDiv">
+			<div id = "scoreDiv">0</div><br>
+			<canvas id="puzzleCanvas" width = "160" height = "400"></canvas>
+			<canvas id="spaceCanvas" width = "400" height = "400"></canvas>
+			<div id ="rules">Controls:Z, X, Arrow Keys <br/> Dodge purple, get 3 in a row!</div>
+		</div>
+	</body>
+</html>

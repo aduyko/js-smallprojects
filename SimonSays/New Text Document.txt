@@ -1,0 +1,450 @@
+<html>
+	<head>
+		<title>Simon Says</title>
+		<style>
+			body{
+			}
+			#canvasDiv {
+				position: absolute;
+				margin: -256px 0 0 -256px;
+				top: 50%;
+				left: 50%;
+		    }
+			#gameCanvas {
+				border: 2px solid #000000;
+			}
+		</style>
+		<script type="text/javascript">
+			//Temp king facts
+			var KING_SIZE = 30;
+			var KING_FILL_COLOR = "gold";
+			var KING_STROKE_COLOR = "black";
+			
+			//Temp store facts
+			var STORE_ART_SIZE = 64;
+			
+			//How much to dim the main screen when a store menu comes up
+			var GLOBAL_DIM_AMOUNT = .6;
+			
+			
+			//Game states
+			//STATE_MAP = 0 = main screen where the king or a store can be picked
+			//STATE_STORE = 1 = when a store is selected
+			//STATE_ALERT = 2 = time stopped dialogs(confirm/decline + information + king)
+			var GAME_STATE = 0;
+			var STATE_MAP = 0;
+			var STATE_STORE = 1;
+			var STATE_ALERT = 2;
+			
+			//Canvas info
+			var gameCanvas;
+			var gameCtx;
+			
+			//Image info
+			//num art is important for preloading enforcement so no DOMS
+			var numArt = 3;
+			var numLoadedArt = 0;
+			var bakeryArt = new Image();
+			var bakeryArtKaiser = new Image();
+			var bakeryArtBaguette = new Image();
+			
+			//king object facts
+			var king = {
+				size: KING_SIZE,
+				fillColor: KING_FILL_COLOR,
+				strokeColor: KING_STROKE_COLOR,
+				x: 0,
+				y: 0
+			}
+			
+			//store object facts
+			var store = function(name, image, contents, contentsImages) {
+				this.contents = contents;
+				this.size = contents.length;
+				this.name = name;
+				this.image = image;
+				this.contentImages = contentsImages;
+			}
+			
+			//store information initialization
+			var FULL_STORE_LIST = new Array();
+			
+			//create all the stores
+			var FULL_BAKERY_LIST = new store("Bakery",bakeryArt,["Kaiser Roll","Baguette"],[bakeryArtKaiser,bakeryArtBaguette]);
+			var FULL_FLORIST_LIST = new store("Florist",bakeryArt,["Rose"],[bakeryArtKaiser]);
+			var FULL_TAILOR_LIST = new store("Tailor",bakeryArt,["Evening Suit","Tuxedo","Dress Shirt"],[bakeryArtKaiser,bakeryArtKaiser,bakeryArtKaiser]);
+			//push them into the master list
+			FULL_STORE_LIST.push(FULL_BAKERY_LIST);
+			FULL_STORE_LIST.push(FULL_FLORIST_LIST);
+			FULL_STORE_LIST.push(FULL_TAILOR_LIST);
+			FULL_STORE_LIST.push(new store("Tailor",bakeryArt,["Evening Suit","Tuxedo","Dress Shirt"],[bakeryArtKaiser,bakeryArtKaiser,bakeryArtKaiser]));
+			FULL_STORE_LIST.push(new store("Tailor",bakeryArt,["Evening Suit","Tuxedo","Dress Shirt"],[bakeryArtKaiser,bakeryArtKaiser,bakeryArtKaiser]));
+			FULL_STORE_LIST.push(new store("Tailor",bakeryArt,["Evening Suit","Tuxedo","Dress Shirt"],[bakeryArtKaiser,bakeryArtKaiser,bakeryArtKaiser]));
+			FULL_STORE_LIST.push(new store("Tailor",bakeryArt,["Evening Suit","Tuxedo","Dress Shirt"],[bakeryArtKaiser,bakeryArtKaiser,bakeryArtKaiser]));
+			FULL_STORE_LIST.push(new store("Tailor",bakeryArt,["Evening Suit","Tuxedo","Dress Shirt"],[bakeryArtKaiser,bakeryArtKaiser,bakeryArtKaiser]));
+			
+			//our reference store which to pull things from
+			var FULL_STORE = new store("","",FULL_STORE_LIST,"");
+			
+			//our real stores that are drawn on the map and can be accessed
+			var currentStore = new store("","",FULL_STORE_LIST,"");
+			
+			//this deals with button creation for when you enter a store
+			//store info is only stored in an array so you have to create a new
+			//object to track mouseclicks since this stuff is dynamic
+			var storeButtons = new Array();
+			var storeButton = function(content,image,xPos,yPos) {
+				this.name = content;
+				this.image = image;
+				this.x = xPos;
+				this.y = yPos;
+				this.radius = STORE_ART_SIZE;
+			}
+			
+			//confirmation dialog facts
+			var CONFIRM_DIALOG = {
+				message:"",
+				height:0,
+				width:0,
+				x:0,
+				y:0
+			}
+			var CONFIRM_DIALOG_YES = {
+				x:0,
+				y:0
+			}
+			var CONFIRM_DIALOG_NO = {
+				x:0,
+				y:0
+			}
+			
+			//resets all static positions relative to canvas
+			function reset() {
+				CONFIRM_DIALOG.x = gameCanvas.width/5;
+				CONFIRM_DIALOG.y = gameCanvas.height/3.5;
+				CONFIRM_DIALOG.height = gameCanvas.height/3;
+				CONFIRM_DIALOG.width = gameCanvas.width*3/5;
+				
+				CONFIRM_DIALOG_YES.x = CONFIRM_DIALOG.x-(CONFIRM_DIALOG.width*3/4);
+				CONFIRM_DIALOG_YES.y = CONFIRM_DIALOG.y-(CONFIRM_DIALOG.height*1/4);
+				
+				CONFIRM_DIALOG_NO.x = CONFIRM_DIALOG.x-(CONFIRM_DIALOG.width*1/4);
+				CONFIRM_DIALOG_NO.y = CONFIRM_DIALOG.y-(CONFIRM_DIALOG.height*1/4);
+				
+				king.x = gameCanvas.width/2;
+				king.y = gameCanvas.height/4.5;
+				
+				for (i=0;i<currentStore.size;i++) {
+					var selectedStore = currentStore.contents[i];
+					if (currentStore.size <=5) {
+						selectedStore.x = ((i+1))*gameCanvas.width/(currentStore.size+1);
+					}
+					else {
+						if ((i+1)%6==0) {
+							selectedStore.x = gameCanvas.width/6;
+						}
+						else {
+							selectedStore.x = (Math.floor(i/6)+(i+1)%6)*gameCanvas.width/6;
+						}
+					}
+					selectedStore.y = gameCanvas.height*(3.5+Math.floor(i/5))/7;
+				}
+				render();
+			}
+			
+			//draws the map
+			function render(){
+				drawBackground();
+				drawKing();
+				drawAllStores();
+				drawInventory();
+			}
+			
+			//draws the background
+			function drawBackground() {
+				gameCtx.fillStyle = "white";
+				gameCtx.fillRect(0,0,gameCanvas.width,gameCanvas.height);
+			}
+			
+			//dims the screen
+			function dimBackground() {
+				gameCtx.fillStyle = "rgba(0, 0, 0, "+GLOBAL_DIM_AMOUNT+")";
+				gameCtx.fillRect(0,0,gameCanvas.width,gameCanvas.height);
+			}
+			
+			//draws the king
+			function drawKing() {
+				gameCtx.beginPath();
+				gameCtx.arc(king.x, king.y, king.size, 0, 2 * Math.PI, false);
+				gameCtx.fillStyle = king.fillColor;
+				gameCtx.fill();
+				gameCtx.lineWidth = king.size/3;
+				gameCtx.strokeStyle = king.strokeColor;
+				gameCtx.stroke();
+			}
+			
+			//draws every store
+			function drawAllStores() {
+				for (i=0;i<currentStore.size;i++) {
+					drawStore(i);
+				}
+			}
+			//draws selected store
+			function drawStore(storeIndex) {
+				var selectedStore = currentStore.contents[storeIndex];
+				gameCtx.drawImage(selectedStore.image,selectedStore.x-STORE_ART_SIZE/2,selectedStore.y-STORE_ART_SIZE/2);
+			}
+			//draws inventory
+			function drawInventory() {
+				for (i=1;i<playerInventory.length;i+=2) {
+					gameCtx.drawImage(playerInventory[i],64*(Math.round((i-.01)/2)), gameCanvas.height - STORE_ART_SIZE);
+				}
+			}
+			//draws the contents of a store as well as initializing them into
+			//storebuttons.
+			function drawStoreContents(initStore) {
+				var storeContents = initStore.contents;
+				
+				var contentWidth = initStore.size*gameCanvas.width/5;
+				var contentHeight = contentWidth/initStore.size;
+				var contentX=(gameCanvas.width-(contentWidth))/2;
+				var contentY=gameCanvas.height/5;
+				gameCtx.beginPath();
+				gameCtx.fillStyle = "white";
+				gameCtx.strokeStyle = "black";
+				gameCtx.lineWidth = 2;
+				gameCtx.fillRect(contentX,contentY,contentWidth,contentHeight);
+				gameCtx.closePath();
+				
+				clearStoreButtons();
+				for (i=0;i<initStore.size;i++) {
+					var xPos = (contentX+(i+1)*contentWidth/(initStore.size+1));
+					var yPos = contentY + contentHeight/2;
+					var newButton = new storeButton(storeContents[i],initStore.contentImages[i],xPos,yPos);
+					storeButtons.push(newButton);
+					gameCtx.drawImage(initStore.contentImages[i],xPos-STORE_ART_SIZE/2,yPos-STORE_ART_SIZE/2);
+				}
+			}
+			//
+			
+			//creates a dialog which returns 1 or 0
+			function makeDialog(message) {
+				gameCtx.beginPath();
+				gameCtx.fillStyle = "white";
+				gameCtx.strokeStyle = "black";
+				gameCtx.lineWidth = 2;
+				gameCtx.fillRect(	CONFIRM_DIALOG.x,
+									CONFIRM_DIALOG.y,
+									CONFIRM_DIALOG.width,
+									CONFIRM_DIALOG.height);
+				gameCtx.closePath();
+				writeText(message,CONFIRM_DIALOG.x+10,CONFIRM_DIALOG.y+40);
+				
+				var yesX = CONFIRM_DIALOG_YES.x;
+				var noX = CONFIRM_DIALOG_NO.x;
+				var bothY = CONFIRM_DIALOG_YES.y;
+				gameCtx.beginPath();
+				gameCtx.arc(yesX,bothY, STORE_ART_SIZE, 0, 2 * Math.PI, false);
+				gameCtx.fillStyle = "white";
+				gameCtx.fill();
+				gameCtx.lineWidth = STORE_ART_SIZE/3;
+				gameCtx.strokeStyle = "blue";
+				gameCtx.stroke();
+				gameCtx.closePath();
+				
+				gameCtx.beginPath();
+				gameCtx.arc(noX,bothY, STORE_ART_SIZE, 0, 2 * Math.PI, false);
+				gameCtx.fillStyle = "white";
+				gameCtx.fill();
+				gameCtx.lineWidth = STORE_ART_SIZE/3;
+				gameCtx.strokeStyle = "blue";
+				gameCtx.stroke();
+				gameCtx.closePath();
+			}
+			
+			function writeText(text,x,y) {
+				gameCtx.fillStyle = 'black';
+				gameCtx.font = 'bold 20px sans-serif';
+				gameCtx.textBaseline = 'bottom';
+				gameCtx.fillText(text,x,y);
+			}
+			//checks if a store was clicked and returns the store that was clicked.
+			function storeClicked(x,y) {
+				var checkRadius = STORE_ART_SIZE/2;
+				for (i=0;i<currentStore.size;i++) {
+					var target = currentStore.contents[i];
+					if (Math.abs(target.x-x) < checkRadius && Math.abs(target.y-y) < checkRadius) {
+						return target;
+					}
+				}
+				return null;
+			}
+			//checks if a store item was clicked and returns that item.
+			function itemClicked(x,y) {
+				var checkRadius = STORE_ART_SIZE/2;
+				for (i=0;i<storeButtons.length;i++) {
+					var target = storeButtons[i];
+					if (Math.abs(target.x-x) < checkRadius && Math.abs(target.y-y) < checkRadius) {
+						return target;
+					}
+				}
+				return null;
+			}
+			//checks which dialog option is clicked
+			function dialogClicked(x,y) {
+				var checkRadius = STORE_ART_SIZE;
+				if ((Math.pow(CONFIRM_DIALOG_YES.x-x,2) + Math.pow(CONFIRM_DIALOG_YES.y-y,2)) < checkRadius) {
+					return 1;
+				}
+				if ((Math.pow(CONFIRM_DIALOG_NO.x-x,2) + Math.pow(CONFIRM_DIALOG_NO.y-y,2)) < checkRadius) {
+					return 0;
+				}
+			}
+			//clears our array of storebuttons.
+			function clearStoreButtons() {
+				for (i=storeButtons.length-1;i>=0;i--) {
+					storeButtons.splice(i,1);
+				}
+			}
+			
+			//variables to keep track of what was selected,
+			//think i can initialize these inside mousClicked//???? not sure tho
+			var myStore;
+			var myItem;
+			var previousState;
+			var playerInventory = new Array();
+			var kingInventory = new Array();
+			
+			//gets mouse click coordinates and checks what to do
+			function mouseClicked(event) {
+				var xPos = getX(xPos,event);
+				var yPos = getY(yPos,event);
+				//if we are on the store map screen
+				if (GAME_STATE == STATE_MAP) {
+					myStore = storeClicked(xPos,yPos);
+					//if we clicked a store, dim the background and open the
+					//store interface.
+					if (myStore!=null) {
+						GAME_STATE = STATE_STORE;
+						dimBackground();
+						drawStoreContents(myStore);
+					}
+				}
+				//if we are inside a store
+				else if (GAME_STATE == STATE_STORE) {
+					myItem = itemClicked(xPos,yPos);
+					//if we clicked on an item, return to the map and store the item.
+					if (myItem!=null) {
+						GAME_STATE = STATE_MAP;
+						playerInventory.push(myItem.name);
+						playerInventory.push(myItem.image);
+						render();
+					}
+					//otherwise just return to the map.
+					else {
+						render();
+						GAME_STATE = STATE_MAP;
+						
+						/*GAME_STATE = STATE_ALERT;
+						makeDialog("Leave the store?");
+						previousState = STATE_STORE;
+						*/
+					}
+				}
+				else if (GAME_STATE == STATE_ALERT) {
+					var yesNo = dialogClicked(xPos,yPos);
+					if (yesNo==1) {
+						if (previousState == STATE_STORE) {
+							GAME_STATE = STATE_MAP;
+							render();
+						}
+						if (previousState == STATE_MAP) {
+							GAME_STATE = STATE_MAP;
+							render();
+						}
+					}
+					if (yesNo==0) {
+						GAME_STATE = previousState;
+						if (previousState == STATE_STORE) {
+							render();
+							dimBackground();
+							drawStoreContents(myStore);
+						}
+						if (previousState == STATE_MAP) {
+							render();
+						}
+					}
+				}
+			}
+			
+			//returns x coordinate of mouse on canvas.
+			function getX(x,event) {
+				if (event.x != undefined) {
+					x = event.x;
+				}
+				else {
+					x = event.clientX + document.body.scrollLeft +
+						document.documentElement.scrollLeft;
+				}
+				
+				x -= canvasDiv.offsetLeft;
+				return x;
+			}
+			//returns y coordinate of mouse on canvas.
+			function getY(y,event) {
+				if (event.y != undefined) {
+					y = event.y;
+				}
+				else {
+					y = event.clienty + document.body.scrollLeft +
+						document.documentElement.scrollLeft;
+				}
+				
+				y -= canvasDiv.offsetTop;
+				return y;
+			}
+			
+			//load our canvases and initialize everythings position on load
+			window.onload = function() {
+				loadCanvas();
+				drawLoadingScreen();
+				loadImages();
+			}
+			//loads the canvas and context for th canvas, as well as adding
+			//our mouseListener to check for mouseclicks.
+			function loadCanvas() {
+				gameCanvas = document.getElementById("gameCanvas");
+				gameCanvas.addEventListener("mousedown", mouseClicked, false);
+				gameCtx = gameCanvas.getContext("2d");
+			}
+			function drawLoadingScreen() {
+				gameCtx.font = 'bold 20px sans-serif';
+				gameCtx.textBaseline = 'middle';
+				gameCtx.fillText("Loading",gameCanvas.height/2,gameCanvas.width/2);
+			}
+			function loadImages() {
+				bakeryArt.onload = function(){checkLoaded();}
+				bakeryArt.src = "Graphics/Store_Graphics/Bakery.png";
+				
+				bakeryArtKaiser.onload = function(){checkLoaded();}
+				bakeryArtKaiser.src = "Graphics/Store_Graphics/KaiserRoll.png";
+				
+				bakeryArtBaguette.onload = function(){checkLoaded();}
+				bakeryArtBaguette.src = "Graphics/Store_Graphics/Baguette.png";
+			}
+			
+			function checkLoaded() {
+				numLoadedArt++;
+				if (numLoadedArt==numArt) {
+					reset();
+				}
+			}
+		</script>
+		
+	</head>
+	<body>
+		<div id = "canvasDiv">
+			<canvas id="gameCanvas" width = "512" height = "512"></canvas>
+		</div>
+	</body>
+</html>

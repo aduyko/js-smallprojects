@@ -1,0 +1,10 @@
+body{
+	background:black;
+	color:white;
+}
+#container{
+	position:absolute;
+	left:50%;
+	margin-top:20px;
+}
+#canvas{outline:1px white solid;}

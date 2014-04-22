@@ -1,0 +1,14 @@
+body{
+	background-color:black;
+	color:white;
+}
+#mainCanvas{
+  position:absolute;
+	border:1px white solid;
+	margin:0px;
+}
+#rules{
+  color:#999999;
+  position:absolute;
+  display:inline;
+}

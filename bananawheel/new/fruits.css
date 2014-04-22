@@ -1,0 +1,33 @@
+body{
+	background-color:black;
+	color:white;
+}
+#wrapper{
+	margin:20px auto;
+	width:450px;
+	height:400px;
+	outline:1px solid white;
+  z-index:3;
+}
+
+#canvas{
+  position:absolute;
+  z-index:3;
+}
+
+#chunk-canvas{
+  position:absolute;
+  margin:0;
+  padding:0;
+  left:0;
+  top:0;
+  bottom:0;
+  right:0;
+  z-index:1;
+}
+
+#rules{
+  text-align:center;
+  width:500px;
+  margin:auto;
+}

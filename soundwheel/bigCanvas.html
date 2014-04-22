@@ -1,0 +1,32 @@
+<html>
+<head>
+	<title>Sound Wheel</title>
+	<link rel = "stylesheet" type = "text/css" href = "bigStyle.css"></style>
+	<script src = "../JQuery/jquery-1.8.2.js" type = "text/javascript"></script>
+	<script src = "Wheel.js" type = "text/javascript"></script>
+	<script src = "assets.js" type = "text/javascript"></script>
+	<script src = "SoundManager2/soundmanager2.js" type = "text/javascript"></script>
+	<script type = "text/javascript">
+	var canvas;
+	var ctx;
+	
+	$(document).ready(function(){
+		canvas = document.getElementById("mainCanvas");
+		ctx = canvas.getContext("2d");
+		ctx.canvas.width  = window.innerWidth-20;
+		ctx.canvas.height = window.innerHeight-20;
+		main();
+	});
+	</script>
+</head>
+<body>
+	<div id="rules">
+		Make sure your sound is on!
+		<br/>Click to place a node. 
+		<br/> While a node is selected (highlighted white), press 'z' to create a note and 'x' to undo the last created note. 
+		<br/> You can select multiple nodes at once, and clicking on the background will stop the notes from following your mouse.
+		<br/> Vertical position of nodes determines volume, horizontal position determines pitch.
+	</div>
+<canvas id = 'mainCanvas'>Canvas not supported!</canvas>
+</body>
+</html>

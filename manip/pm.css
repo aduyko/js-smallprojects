@@ -1,0 +1,17 @@
+body{
+	background:black;
+	color:white;
+}
+#container{
+	position:absolute;
+	left:50%;
+	margin-left:-316px;
+	margin-top:40px;
+	text-align:center;
+}
+#canvas{
+	outline:solid 1px white;
+}
+#controls{
+	font-family:helvetica,arial,sans-serif;
+}

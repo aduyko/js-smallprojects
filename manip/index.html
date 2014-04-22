@@ -1,0 +1,52 @@
+<html>
+<head>
+	<title>pm</title>
+	<link rel = "stylesheet" type = "text/css" href = "pm.css"></style>
+	<script src = "../JQuery/jquery-1.8.2.js"></script>
+	<script src = "pm.js" type = "text/javascript"></script>
+	<script>
+		var i_width = 632;
+		var i_height = 238;
+		var canvas;
+		var ctx;
+		
+		var state=0;
+		var STATE_DEFAULT = 0;
+		var STATE_SELECT = 1;
+			var selectType;
+			var SELECT_RECTANGLE = 0;
+		
+		var myImage = new Image();
+		var pixels;
+		var Selection = function(){
+			this.startx=null;
+			this.starty=null;
+			this.endx=null;
+			this.endy=null;
+			this.height=null;
+			this.width=null;
+			this.shape=null;
+			this.pixels=null;
+			this.clear = function() {
+				this.startx=null;
+				this.starty=null;
+				this.endx=null;
+				this.endy=null;
+				this.height=null;
+				this.width=null;
+				this.shape=null;
+			}
+		};
+		var selection = new Selection();
+		var archive = [];
+		
+		var mousePos;
+		$(document).ready(function(){
+			initImg();
+		});
+	</script>
+</head>
+<body>
+	<div id = "container"></div>
+</body>
+</html>

@@ -1,0 +1,11 @@
+body{
+	background-color:black;
+	color:white;
+}
+#mainCanvas{
+	margin-left:-400px;
+	left:50%;
+	margin-top:20px;
+	border:1px white solid;
+	position:absolute;
+}

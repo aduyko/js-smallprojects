@@ -1,0 +1,45 @@
+body{
+	background:black;
+	color:white;
+}
+
+#container{
+	position:absolute;
+	left:50%;
+	margin-left:-323px;
+	margin-top:60px;
+	text-align:center;
+}
+	#canvas{
+		outline:solid 1px white;
+	}
+	#controls{
+		font-family:helvetica,arial,sans-serif;
+	}
+	
+#sliderTable{
+	padding:5px;
+	border-spacing:15px 0px;
+	border-collapse:seperate;
+}
+#r{background:red;}
+#g{background:green;}
+#b{background:blue;}
+.slide{
+	width:200px;
+	height:30px;
+}
+	.slideNub{
+		width:30px;
+		height:30px;
+		background:white;
+	}
+#disclaimer{
+	position:absolute;
+	width:99%;
+	text-align:center;
+	bottom:20px;
+	font: 12px white;
+}
+a:link{color:grey}
+a:visited{color:grey}
